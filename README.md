@@ -1,2 +1,2 @@
-# retail-analysis-bi
-Contains the ASL specification of the RetailAnalysis-BI application, created by obviEnce
+# RetailAnalysis-BI Application
+Contains a simplified requirements specification of the RetailAnalysis-BI application, written in ASL
