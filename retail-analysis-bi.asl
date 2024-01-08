@@ -8,12 +8,11 @@ System retail_analysis_bi: Application
 // A) Multidimensional model 
 
 // A.1. Data Enumerations:
-
 DataEnumeration enum_StoreTypes values (NewStore, SameStore)
 
 // A.2. Dimensions:
 
-DataEntity Districts "Districts Dimension" : Master : BI_Dimension [
+DataEntity e_District "Districts Dimension" : Master : BI_Dimension [
   attribute districtID "DistrictID" : Integer [constraints (PrimaryKey NotNull Unique)]
   attribute businessUnitID "BusinessUnitID" : Integer [constraints (NotNull)]
   attribute district "District" : String(50) [constraints (NotNull)]
@@ -24,7 +23,7 @@ DataEntity Districts "Districts Dimension" : Master : BI_Dimension [
   description "This dimension represents the various districts and associated attributes."
 ]
 
-DataEntity Items "Items Dimension" : Master : BI_Dimension [
+DataEntity e_Item "Items Dimension" : Master : BI_Dimension [
   attribute itemID "ItemID" : Integer [constraints (PrimaryKey NotNull Unique)]
   attribute segment "Segment" : String(50) [constraints (NotNull)]
   attribute category "Category" : String(50) [constraints (NotNull)]
@@ -44,14 +43,14 @@ DataEntity _Time "Time Dimension" : Reference : BI_Dimension [
 
 // A.3. Facts:
 
-DataEntity Stores "Stores Fact": Transaction : BI_Fact [
+DataEntity e_Store "Stores Fact": Transaction : BI_Fact [
   attribute locationID "Location ID" : Integer [constraints (PrimaryKey NotNull Unique)]
   attribute cityName "City Name" : String(50) [constraints (NotNull)]
   attribute territory "Territory" : String(50) [constraints (NotNull)]
   attribute postalCode "Postal Code" : String(10) [constraints (NotNull)]
   attribute openDate "Open Date" : Date [constraints (NotNull)]
   attribute sellingAreaSize "Selling Area Size" : Decimal [constraints (NotNull)]
-  attribute districtID "District ID" : Integer [constraints (NotNull ForeignKey(Districts))]
+  attribute districtID "District ID" : Integer [constraints (NotNull ForeignKey(e_District))]
   attribute Name "Name" : String(50) [constraints (NotNull)]
   attribute storeNumber "Store Number" : Integer [constraints (NotNull)]
   attribute chain "Chain" : String(50) [constraints (NotNull)]
@@ -60,16 +59,16 @@ DataEntity Stores "Stores Fact": Transaction : BI_Fact [
   attribute openMonthNo "Open Month No" : Integer [constraints (NotNull)]
   attribute openMonth "Open Month" : String(20) [constraints (NotNull)]
   attribute averageSellingAreaSize "Average Selling Area Size" : Decimal [formula details: sum(sellingAreaSize) tag (name "expression" value "average(sellingAreaSize)")]
-  attribute newStores "New Stores" : Integer [formula details: count(Stores) tag (name "expression" value "count(if(storeType = enum_StoreTypes.NewStore))")]
+  attribute newStores "New Stores" : Integer [formula details: count(e_Store) tag (name "expression" value "count(if(storeType = enum_StoreTypes.NewStore))")]
   attribute newStoresTarget "New Stores Target" : String(5) [defaultValue "14"]
-  attribute openStoreCount "Open Store Count" : Integer [formula details: count(Stores) tag (name "expression" value "count(Store.openDate)")]
-  attribute totalStores "Total Stores" : Integer [formula details: count(Stores)]
+  attribute openStoreCount "Open Store Count" : Integer [formula details: count(e_Store) tag (name "expression" value "count(Store.openDate)")]
+  attribute totalStores "Total Stores" : Integer [formula details: count(e_Store)]
   description "This fact table represents various attributes and measures related to stores."
 ]
 
-DataEntity Sales "Sales Fact" : Transaction : BI_Fact [
-  attribute itemID "Item ID" : Integer [constraints (NotNull ForeignKey(Items))]
-  attribute locationID "Location ID" : Integer [constraints (NotNull ForeignKey(Stores))]
+DataEntity e_Sales "Sales Fact" : Transaction : BI_Fact [
+  attribute itemID "Item ID" : Integer [constraints (NotNull ForeignKey(e_Item))]
+  attribute locationID "Location ID" : Integer [constraints (NotNull ForeignKey(e_Store))]
   attribute reportingPeriodID "Reporting Period ID" : Integer [constraints (NotNull ForeignKey(_Time))]
   attribute monthID "Month ID" : Integer [constraints (NotNull)]
   attribute scenarioID "Scenario ID" : Integer [constraints (NotNull)]
@@ -84,10 +83,10 @@ DataEntity Sales "Sales Fact" : Transaction : BI_Fact [
   attribute regularSalesDollars "Regular Sales Dollars" : Decimal [formula details: sum(sumRegularSalesDollars)]
   attribute regularSalesUnits "Regular Sales Units" : Decimal [formula details: sum(sumRegularSalesUnits)]
   attribute salesPerSqFt "Sales Per Square Feet" : Decimal [formula details: sum(totalSales) tag (name "expression" value "TotalSales / (count(stores) * sum(sellingAreaSize))")]
-  attribute storeCount "Store Count" : Integer [formula details: count(Stores)]
+  attribute storeCount "Store Count" : Integer [formula details: count(e_Store)]
   attribute totalUnitsLastYear "Total Units Last Year" : Decimal [constraints (NotNull)]
   attribute totalUnitsThisYear "Total Units This Year" : Decimal [constraints (NotNull)]
-  attribute totalSales "Total Sales" : Decimal [formula arithmetic (regularSalesDollars + Sales.markdownSalesDollars)]
+  attribute totalSales "Total Sales" : Decimal [formula arithmetic (regularSalesDollars + e_Sales.markdownSalesDollars)]
   attribute totalSalesLY "Total Sales Last Year" : Decimal [constraints (NotNull)]
   attribute totalSalesTY "Total Sales This Year" : Decimal [constraints (NotNull)]
   attribute totalSalesVar "Total Sales Variance" : Decimal [formula arithmetic (totalSalesTY - totalSalesLY)]
@@ -106,13 +105,13 @@ DataEntity Sales "Sales Fact" : Transaction : BI_Fact [
 // A.4. Data Entities Clusters:
 
 DataEntityCluster dec_Stores : Transaction [
-    main Stores
-    uses Districts    
+    main e_Store
+    uses e_District    
 ]
 
 DataEntityCluster dec_Sales : Transaction [
-    main Sales
-    uses Stores, Districts, _Time, Items
+    main e_Sales
+    uses e_Store, e_District, _Time, e_Item
 ]
 
 // B) Use Cases
@@ -130,10 +129,10 @@ UseCase uc_Analysis_Sales_National_Level_By_CFO : BIOperation : DataQuerying [
   dataEntity dec_Sales
 
   actions BI_Slice, BI_Dice, BI_Rollup, BI_DrillDown
-  tag (name "BI-Action:BI_Slice:NationalSalesOverview" value "Dimensions:'_Time, Districts'")
-  tag (name "BI-Action:BI_Dice:SalesByItemCategoryAndTime" value "Dimensions:'_Time, Items'")
-  tag (name "BI-Action:BI_RollUp:SalesByDistrict" value "Dimensions:'Districts'")
-  tag (name "BI-Action:BI_DrillDown:SalesDetailsByStore" value "Dimensions:'Stores'")
+  tag (name "BI-Action:BI_Slice:NationalSalesOverview" value "Dimensions:'_Time, e_District'")
+  tag (name "BI-Action:BI_Dice:SalesByItemCategoryAndTime" value "Dimensions:'_Time, e_Item'")
+  tag (name "BI-Action:BI_RollUp:SalesByDistrict" value "Dimensions:'e_District'")
+  tag (name "BI-Action:BI_DrillDown:SalesDetailsByStore" value "Dimensions:'e_Store'")
 
   description "Provides a comprehensive overview of sales and store data at a national level for the CFO"
 ]
@@ -144,10 +143,10 @@ UseCase uc_Analysis_Sales_District_Level_By_DM : BIOperation : DataQuerying [
 
   actions BI_Slice, BI_Dice, BI_Rollup, BI_DrillDown
 
-  tag (name "BI-Action:BI_Slice:DistrictSalesOverview" value "Dimensions:'_Time, Districts'")
-  tag (name "BI-Action:BI_Dice:SalesByItemInDistrict" value "Dimensions:'Districts, Items'")
-  tag (name "BI-Action:BI_RollUp:SalesSummaryByTimeInDistrict" value "Dimensions:'_Time, Districts'")
-  tag (name "BI-Action:BI_DrillDown:DetailedSalesByStoreInDistrict" value "Dimensions:'Stores, Districts'")
+  tag (name "BI-Action:BI_Slice:DistrictSalesOverview" value "Dimensions:'_Time, e_District'")
+  tag (name "BI-Action:BI_Dice:SalesByItemInDistrict" value "Dimensions:'e_District, e_Item'")
+  tag (name "BI-Action:BI_RollUp:SalesSummaryByTimeInDistrict" value "Dimensions:'_Time, e_District'")
+  tag (name "BI-Action:BI_DrillDown:DetailedSalesByStoreInDistrict" value "Dimensions:'e_Store, e_District'")
 
   description "Enables the District Manager to analyse sales and store data at a district level"
 ]
